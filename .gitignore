@@ -1,0 +1,5 @@
+node_modules/
+uploads/
+credentials.json
+token.json
+*.log
