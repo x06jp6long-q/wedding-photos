@@ -218,7 +218,13 @@ async function initDrive() {
 }
 
 // --- API ---
-app.use(express.static(path.join(__dirname, 'public')));
+const publicPath = path.join(__dirname, 'public');
+console.log(`靜態檔案目錄: ${publicPath}, 存在: ${fs.existsSync(publicPath)}`);
+app.use(express.static(publicPath));
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', publicExists: fs.existsSync(publicPath), files: fs.existsSync(publicPath) ? fs.readdirSync(publicPath) : [] });
+});
 
 app.post('/upload', upload.array('photos', 500), async (req, res) => {
   if (!accessToken) return res.status(503).json({ error: 'Google Drive 尚未授權' });
