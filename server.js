@@ -5,6 +5,7 @@ const path = require('path');
 const https = require('https');
 const querystring = require('querystring');
 const QRCode = require('qrcode');
+const ExifParser = require('exif-parser');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -235,9 +236,33 @@ app.post('/upload', upload.array('photos', 500), async (req, res) => {
 
   for (const file of req.files) {
     try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const ext = path.extname(file.originalname) || '.jpg';
-      const fileName = `${guestName}_${timestamp}${ext}`;
+      let photoDate = new Date();
+
+      // 嘗試從 EXIF 讀取拍攝時間（支援 JPG/JPEG/TIFF）
+      try {
+        const buf = fs.readFileSync(file.path);
+        const parser = ExifParser.create(buf);
+        const exif = parser.parse();
+        if (exif.tags.DateTimeOriginal) {
+          photoDate = new Date(exif.tags.DateTimeOriginal * 1000);
+        } else if (exif.tags.CreateDate) {
+          photoDate = new Date(exif.tags.CreateDate * 1000);
+        }
+      } catch (e) {}
+
+      // 如果 EXIF 解析失敗（HEIC 等格式），嘗試從檔名中的時間戳推斷（iPhone 命名慣例）
+      if (photoDate.getFullYear() < 2000) {
+        photoDate = new Date();
+      }
+
+      const ts = photoDate.getFullYear()
+        + '-' + String(photoDate.getMonth() + 1).padStart(2, '0')
+        + '-' + String(photoDate.getDate()).padStart(2, '0')
+        + '_' + String(photoDate.getHours()).padStart(2, '0')
+        + '-' + String(photoDate.getMinutes()).padStart(2, '0')
+        + '-' + String(photoDate.getSeconds()).padStart(2, '0');
+      const fileName = `${ts}_${guestName}${ext}`;
 
       await uploadFileToDrive(file.path, fileName, file.mimetype, folderId);
       results.push(fileName);
